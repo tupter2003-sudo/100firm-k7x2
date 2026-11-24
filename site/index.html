@@ -41,13 +41,11 @@ header{border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0
 .btn.line:hover{background:#eef2fb}
 
 .hero{padding:64px 0}
-.hero .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:44px;align-items:center}
+.hero .grid{display:block}
+.hero .grid>div{max-width:760px}
 .hero p.lead{font-size:1.15rem;color:var(--muted);margin:18px 0 26px}
 .cta{display:flex;gap:12px;flex-wrap:wrap}
 .hnote{margin-top:22px;color:var(--muted);font-size:.95rem}
-.photo{margin:0}
-.photo img{width:100%;border-radius:8px;border:1px solid var(--line);aspect-ratio:4/3;object-fit:cover;object-position:60% 55%}
-.photo figcaption{font-size:.85rem;color:var(--muted);margin-top:8px}
 
 .two{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
 ul.check{list-style:none;margin:0;padding:0}
@@ -111,10 +109,6 @@ footer .row{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-betw
       </div>
       <p class="hnote" data-i18n="hnote">Også enkelte stykker. Ud fra prøve, billede, mål eller tegning.</p>
     </div>
-    <figure class="photo">
-      <img src="foto-maskine.jpg" alt="Små dele i en maskine" loading="eager">
-      <figcaption data-i18n="cap">Små dele i en maskine. Det er den slags, vi hjælper med.</figcaption>
-    </figure>
   </div>
 </section>
 
@@ -205,7 +199,6 @@ n1:"What we do",n2:"Who we help",n3:"About us",n4:"Contact",
 h1:"Small parts can cause big problems. We take care of them.",
 lead:"AV UniPlast sources and has smaller plastic parts and spare parts made in small quantities for machines and equipment. Send a photo of the part and we will take a look.",
 b1:"Send a photo",b2:"See what we do",hnote:"Even single pieces. From a sample, photo, measurement or drawing.",
-cap:"Small parts in a machine. This is the kind of thing we help with.",
 y1:"What we do",y2:"We help companies that are missing a small plastic part and do not want to order large quantities.",
 y3:"We find a suitable manufacturer and handle the contact, so you do not have to look for an extra supplier for the small jobs.",
 y4:"Parts that are no longer available or take too long to get",y5:"Small quantities and single pieces",y6:"Parts from a sample, photo, measurement or drawing",y7:"Brackets, bushings, covers, clips and spacers",
