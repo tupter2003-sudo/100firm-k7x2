@@ -1,0 +1,25 @@
+{
+  "name": "uniplast-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && node scripts/migrate.mjs",
+    "start": "next start",
+    "migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "next": "15.5.29",
+    "pg": "^8.13.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
+  }
+}
