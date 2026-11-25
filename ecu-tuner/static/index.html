@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>372505 — разбор и крутилки</title>
+<style>
+  :root {
+    --bg: #121410;
+    --card: #1c1f18;
+    --line: #34382c;
+    --text: #ece7d8;
+    --muted: #a39b88;
+    --accent: #e2a23a;
+    --ok: #9cba6a;
+    --bad: #d4654a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.45 "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.45rem; font-weight: 650; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 0 0 12px;
+  }
+  button, .drop {
+    font: inherit;
+  }
+  button {
+    background: var(--accent);
+    color: #1a1408;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line);
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .drop {
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 22px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .drop.hot { border-color: var(--accent); color: var(--text); }
+  input[type="file"] { display: none; }
+  label.slider { display: block; margin: 12px 0; }
+  label.slider span { display: flex; justify-content: space-between; color: var(--muted); }
+  label.slider b { color: var(--text); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+  ul { margin: 8px 0 0; padding-left: 18px; }
+  li { margin: 4px 0; }
+  .warn { color: var(--bad); }
+  .ok { color: var(--ok); }
+  svg { width: 100%; height: 180px; background: #10120e; border-radius: 8px; }
+  .err { color: var(--bad); white-space: pre-wrap; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .stat { background: #10120e; border-radius: 8px; padding: 8px 10px; }
+  .stat small { color: var(--muted); display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Разбор прошивки 372505</h1>
+  <p class="sub">Только Audi A4 BFB, блок 8E0909518AQ, софт 372505. Читаются известные карты. Крутилки двигают их, контрольная сумма считается заново. Чужой файл не откроется.</p>
+
+  <div class="drop" id="drop">Закинь .bin сюда или нажми</div>
+  <input id="file" type="file" accept=".bin,application/octet-stream" />
+
+  <p id="err" class="err"></p>
+
+  <section id="report" class="card" hidden>
+    <h2>Что в файле</h2>
+    <div class="stats" id="stats"></div>
+    <ul id="notes"></ul>
+    <svg id="chart" viewBox="0 0 320 160"></svg>
+  </section>
+
+  <section id="tune" class="card" hidden>
+    <h2>Крутилки</h2>
+    <p class="sub">«Выставить безопасно» — это правила по этой прошивке, не отдельная модель, которая сама переписывает байты.</p>
+    <div class="row">
+      <button type="button" id="auto">Выставить безопасно</button>
+      <button type="button" class="ghost" id="reset">Как в файле</button>
+    </div>
+    <label class="slider">Пик наддува LDRXN <span><b id="peakv">150</b> %</span>
+      <input id="peak" type="range" min="120" max="180" step="1" value="150" />
+    </label>
+    <label class="check"><input id="smooth" type="checkbox" /> Сгладить кривую (убрать дыру с низов и скачок)</label>
+    <label class="slider">Богаче на полном газу <span><b id="fuelv">0</b> %</span>
+      <input id="fuel" type="range" min="0" max="15" step="1" value="0" />
+    </label>
+    <label class="slider">Ретард на высокой нагрузке <span><b id="timv">0</b> × 0.75°</span>
+      <input id="timing" type="range" min="0" max="6" step="1" value="0" />
+    </label>
+    <label class="check"><input id="popcorn" type="checkbox" /> Выключить попкорн</label>
+    <label class="check"><input id="lope" type="checkbox" /> Выключить idle-lope (хук 2-й передачи)</label>
+    <p id="why"></p>
+    <button type="button" id="save">Сохранить .bin</button>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let session = null;
+let original = null;
+let suggestion = null;
+let previewTimer = null;
+
+function sliders() {
+  return {
+    peak: Number($("peak").value),
+    smooth: $("smooth").checked,
+    fuel: Number($("fuel").value),
+    timing: Number($("timing").value),
+    popcorn: $("popcorn").checked ? "off" : "keep",
+    lope: $("lope").checked ? "off" : "keep",
+  };
+}
+function paintSliders(s) {
+  $("peak").value = s.peak;
+  $("smooth").checked = !!s.smooth;
+  $("fuel").value = s.fuel;
+  $("timing").value = s.timing;
+  $("popcorn").checked = s.popcorn === "off";
+  $("lope").checked = s.lope === "off";
+  syncLabels();
+}
+function syncLabels() {
+  $("peakv").textContent = $("peak").value;
+  $("fuelv").textContent = $("fuel").value;
+  $("timv").textContent = $("timing").value;
+}
+["peak", "fuel", "timing"].forEach((id) => $(id).addEventListener("input", syncLabels));
+
+function chart(rpm, values) {
+  const svg = $("chart");
+  const maxR = Math.max(...rpm);
+  const maxV = Math.max(180, ...values);
+  const pts = rpm.map((r, i) => {
+    const x = 16 + (r / maxR) * 288;
+    const y = 148 - (values[i] / maxV) * 132;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  svg.innerHTML = `<polyline fill="none" stroke="#e2a23a" stroke-width="2" points="${pts}" />
+    <text x="16" y="14" fill="#a39b88" font-size="11">LDRXN, %</text>`;
+}
+
+function show(info, rec) {
+  $("report").hidden = false;
+  $("tune").hidden = false;
+  const bits = [
+    ["Пик LDRXN", info.peak + " %"],
+    ["1500 / 1750 / 1950", [info.at_1500, info.at_1750, info.at_1950].join(" / ")],
+    ["Лямбда WOT", info.lamfa_wot],
+    ["KFMIRL max", info.kfmirl_max + " %"],
+    ["Попкорн, ячеек", info.popcorn_cells],
+    ["Lope", info.lope ? "вкл" : "нет"],
+    ["Отсечка", info.nmax + " об"],
+    ["Кат CDKAT", info.cdkat],
+  ];
+  $("stats").innerHTML = bits.map(([k, v]) => `<div class="stat"><small>${k}</small>${v}</div>`).join("");
+  $("notes").innerHTML = info.notes.map((n) => `<li>${n}</li>`).join("");
+  chart(info.rpm, info.ldrxn);
+  original = { peak: info.peak, smooth: false, fuel: 0, timing: 0, popcorn: "keep", lope: "keep" };
+  suggestion = rec;
+  paintSliders(rec.sliders);
+  $("why").innerHTML = rec.why.map((n) => `<span class="ok">${n}</span>`).join("<br>");
+  schedulePreview();
+}
+
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 200);
+}
+async function refreshPreview() {
+  if (!session) return;
+  const res = await fetch("/api/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: session, sliders: sliders() }),
+  });
+  const data = await res.json();
+  if (data.ok) chart(data.rpm, data.ldrxn);
+}
+["peak", "fuel", "timing", "smooth", "popcorn", "lope"].forEach((id) => {
+  $(id).addEventListener("input", () => { syncLabels(); schedulePreview(); });
+});
+
+async function upload(file) {
+  $("err").textContent = "";
+  const body = new FormData();
+  body.append("bin", file);
+  const res = await fetch("/api/analyze", { method: "POST", body });
+  const data = await res.json();
+  if (!data.ok) {
+    $("err").textContent = data.error || "не разобрал";
+    return;
+  }
+  session = data.id;
+  show(data.analysis, data.recommend);
+}
+
+$("drop").onclick = () => $("file").click();
+$("file").onchange = () => { if ($("file").files[0]) upload($("file").files[0]); };
+$("drop").ondragover = (e) => { e.preventDefault(); $("drop").classList.add("hot"); };
+$("drop").ondragleave = () => $("drop").classList.remove("hot");
+$("drop").ondrop = (e) => {
+  e.preventDefault();
+  $("drop").classList.remove("hot");
+  if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+};
+$("auto").onclick = () => {
+  if (!suggestion) return;
+  paintSliders(suggestion.sliders);
+  $("why").innerHTML = suggestion.why.map((n) => `<span class="ok">${n}</span>`).join("<br>");
+  schedulePreview();
+};
+$("reset").onclick = () => {
+  if (!original) return;
+  paintSliders(original);
+  $("why").textContent = "Крутилки как в загруженном файле, без правок.";
+  schedulePreview();
+};
+$("save").onclick = async () => {
+  $("err").textContent = "";
+  $("save").disabled = true;
+  try {
+    const res = await fetch("/api/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: session, sliders: sliders() }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      $("err").textContent = data.error || "не сохранилось";
+      return;
+    }
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "372505_tuned.bin";
+    a.click();
+  } finally {
+    $("save").disabled = false;
+  }
+};
+</script>
+</body>
+</html>

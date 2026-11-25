@@ -1,0 +1,1 @@
+bin/me7sum is a static build of ME7Sum (https://github.com/nyetwurk/ME7Sum), BSD license, used only to correct checksums of this ECU image.
